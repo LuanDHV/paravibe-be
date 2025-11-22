@@ -33,27 +33,6 @@ services:
     networks:
       - paravibe-network
 
-  paravibe-be:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: paravibe-be
-    restart: always
-    environment:
-      PORT: 8080
-      DB_HOST: paravibe-mysql
-      DB_PORT: 3306
-      DB_USER: paravibe
-      DB_PASS: mypass
-      DB_NAME: paravibe_db
-      JWT_SECRET: your_jwt_secret
-    depends_on:
-      - paravibe-mysql
-    ports:
-      - '8080:8080'
-    networks:
-      - paravibe-network
-
 volumes:
   mysql_data:
 
