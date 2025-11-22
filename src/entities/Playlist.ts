@@ -5,6 +5,7 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from './User';
 import { PlaylistSong } from './PlaylistSong';
@@ -12,7 +13,7 @@ import { PlaylistSong } from './PlaylistSong';
 @Index('user_id', ['userId'], {})
 @Entity('Playlist', { schema: 'paravibe_db' })
 export class Playlist {
-  @Column('int', { primary: true, name: 'playlist_id' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'playlist_id' })
   playlistId: number;
 
   @Column('int', { name: 'user_id' })

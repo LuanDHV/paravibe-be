@@ -48,7 +48,7 @@ import { Recommendation } from './entities/Recommendation';
         UserHistory,
         Recommendation,
       ],
-      synchronize: false,
+      synchronize: true,
     }),
     AuthModule,
     UsersModule,

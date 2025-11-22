@@ -1,10 +1,17 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { User } from './User';
 
 @Index('user_id', ['userId'], {})
 @Entity('UserToken', { schema: 'paravibe_db' })
 export class UserToken {
-  @Column('int', { primary: true, name: 'token_id' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'token_id' })
   tokenId: number;
 
   @Column('int', { name: 'user_id' })

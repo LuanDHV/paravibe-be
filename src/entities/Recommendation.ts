@@ -1,11 +1,18 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Song } from './Song';
 
 @Index('song_id', ['songId'], {})
 @Index('similar_song_id', ['similarSongId'], {})
 @Entity('Recommendation', { schema: 'paravibe_db' })
 export class Recommendation {
-  @Column('int', { primary: true, name: 'rec_id' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'rec_id' })
   recId: number;
 
   @Column('int', { name: 'song_id' })

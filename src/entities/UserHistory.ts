@@ -1,4 +1,11 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { User } from './User';
 import { Song } from './Song';
 
@@ -6,7 +13,7 @@ import { Song } from './Song';
 @Index('song_id', ['songId'], {})
 @Entity('UserHistory', { schema: 'paravibe_db' })
 export class UserHistory {
-  @Column('int', { primary: true, name: 'history_id' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'history_id' })
   historyId: number;
 
   @Column('int', { name: 'user_id' })

@@ -1,9 +1,9 @@
-import { Column, Entity, OneToMany } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from './User';
 
 @Entity('Role', { schema: 'paravibe_db' })
 export class Role {
-  @Column('int', { primary: true, name: 'role_id' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'role_id' })
   roleId: number;
 
   @Column('varchar', {
