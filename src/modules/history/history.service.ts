@@ -28,7 +28,9 @@ export class HistoryService {
     const history = this.historyRepository.create({
       userId,
       songId: createHistoryDto.songId,
-      listenedAt: new Date(),
+      listenedAt: createHistoryDto.playedAt
+        ? new Date(createHistoryDto.playedAt)
+        : new Date(),
       durationListened: createHistoryDto.durationListened ?? 0,
       action: createHistoryDto.action ?? HistoryAction.PLAY,
     });

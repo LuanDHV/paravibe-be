@@ -27,6 +27,34 @@ export class SongResponseDto {
   };
 
   @ApiProperty({
+    description: 'Song duration in seconds',
+    example: 231,
+    required: false,
+  })
+  duration?: number;
+
+  @ApiProperty({
+    description: 'Song release date',
+    example: '2014-10-27',
+    required: false,
+  })
+  releaseDate?: string;
+
+  @ApiProperty({
+    description: 'Song image URL',
+    example: 'https://example.com/song.jpg',
+    required: false,
+  })
+  imageUrl?: string;
+
+  @ApiProperty({
+    description: 'Song audio URL',
+    example: 'https://example.com/song.mp3',
+    required: false,
+  })
+  audioUrl?: string;
+
+  @ApiProperty({
     description: 'Song genre',
     example: 'Rock',
   })

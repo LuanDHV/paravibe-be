@@ -45,6 +45,12 @@ export class SongsController {
     required: false,
   })
   @ApiQuery({
+    name: 'title',
+    description: 'Filter by song title',
+    example: 'Shake It Off',
+    required: false,
+  })
+  @ApiQuery({
     name: 'artistId',
     description: 'Filter by artist ID',
     example: 1,

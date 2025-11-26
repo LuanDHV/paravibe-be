@@ -62,16 +62,22 @@ export class SongsService {
     limit: number;
   }> {
     // Tìm kiếm bài hát theo tiêu đề, nghệ sĩ, hoặc thể loại
-    const { q, artistId, genre, page = 1, limit = 10 } = searchDto;
+    const { q, title, artistId, genre, page = 1, limit = 10 } = searchDto;
     const skip = (page - 1) * limit;
 
     const query = this.songRepository
       .createQueryBuilder('song')
       .leftJoinAndSelect('song.artist', 'artist');
 
-    // Tìm theo tiêu đề
+    // Tìm theo tiêu đề (từ q hoặc title)
     if (q) {
       query.andWhere('song.title LIKE :title', { title: `%${q}%` });
+    }
+
+    if (title) {
+      query.andWhere('song.title LIKE :titleParam', {
+        titleParam: `%${title}%`,
+      });
     }
 
     if (artistId) {
@@ -191,6 +197,10 @@ export class SongsService {
         artistId: song.artist.artistId,
         name: song.artist.name || '',
       },
+      duration: song.duration || undefined,
+      releaseDate: song.releaseDate || undefined,
+      imageUrl: song.imageUrl || undefined,
+      audioUrl: song.audioUrl || undefined,
       genre: song.genre || '',
       previewUrl: song.previewUrl || '',
       lyrics: song.lyrics || '',

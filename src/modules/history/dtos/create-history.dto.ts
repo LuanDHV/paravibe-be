@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsEnum,
   IsPositive,
+  IsString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -23,6 +24,15 @@ export class CreateHistoryDto {
   @IsInt()
   @IsPositive()
   songId: number;
+
+  @ApiProperty({
+    description: 'Timestamp when the song was played',
+    example: '2024-11-22T10:30:00Z',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  playedAt?: string;
 
   @ApiProperty({
     description: 'Duration listened in seconds',

@@ -19,4 +19,25 @@ export class ArtistResponseDto {
     required: false,
   })
   country?: string;
+
+  @ApiProperty({
+    description: 'Artist biography',
+    example: 'American singer-songwriter',
+    required: false,
+  })
+  bio?: string;
+
+  @ApiProperty({
+    description: 'Artist genre',
+    example: 'Pop',
+    required: false,
+  })
+  genre?: string;
+
+  @ApiProperty({
+    description: 'Artist image URL',
+    example: 'https://example.com/artist.jpg',
+    required: false,
+  })
+  imageUrl?: string;
 }

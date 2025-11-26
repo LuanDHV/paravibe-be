@@ -97,6 +97,9 @@ export class ArtistsService {
       artistId: artist.artistId,
       name: artist.name || '',
       country: artist.country || undefined,
+      bio: artist.bio || undefined,
+      genre: artist.genre || undefined,
+      imageUrl: artist.imageUrl || undefined,
     };
   }
 }

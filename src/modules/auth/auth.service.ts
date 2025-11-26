@@ -61,6 +61,7 @@ export class AuthService {
       email,
       passwordHash,
       roleId: userRole.roleId,
+      isActive: true,
     });
 
     await this.userRepository.save(user);

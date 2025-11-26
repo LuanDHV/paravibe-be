@@ -1,0 +1,1332 @@
+{
+  "info": {
+    "name": "Paravibe API Test Collection",
+    "description": "Complete test collection for Paravibe Music Recommendation System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.accessToken);",
+                  "  pm.environment.set('refreshToken', jsonData.refreshToken);",
+                  "  pm.environment.set('userId', jsonData.user.userId);",
+                  "  console.log('✓ User registered successfully');",
+                  "  console.log('Access Token:', jsonData.accessToken);",
+                  "} else {",
+                  "  console.log('✗ Registration failed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@test.com\",\n  \"name\": \"Test User 1\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Register Admin User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('adminAccessToken', jsonData.accessToken);",
+                  "  pm.environment.set('adminRefreshToken', jsonData.refreshToken);",
+                  "  pm.environment.set('adminUserId', jsonData.user.userId);",
+                  "  console.log('✓ Admin user registered successfully');",
+                  "} else {",
+                  "  console.log('✗ Admin registration failed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@test.com\",\n  \"name\": \"Admin User\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.accessToken);",
+                  "  pm.environment.set('refreshToken', jsonData.refreshToken);",
+                  "  console.log('✓ Login successful');",
+                  "} else {",
+                  "  console.log('✗ Login failed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@test.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('accessToken', jsonData.accessToken);",
+                  "  console.log('✓ Token refreshed successfully');",
+                  "} else {",
+                  "  console.log('✗ Token refresh failed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{refreshToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Artists",
+      "item": [
+        {
+          "name": "1. Create Artist (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('artistId', jsonData.artistId || jsonData.id);",
+                  "  console.log('✓ Artist created, ID:', pm.environment.get('artistId'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Taylor Swift\",\n  \"country\": \"United States\",\n  \"bio\": \"American singer-songwriter\",\n  \"genre\": \"Pop\",\n  \"imageUrl\": \"https://example.com/taylor.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artists",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "artists"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Create Another Artist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('artistId2', jsonData.artistId || jsonData.id);",
+                  "  console.log('✓ Second artist created, ID:', pm.environment.get('artistId2'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"The Weeknd\",\n  \"country\": \"Canada\",\n  \"bio\": \"Canadian singer\",\n  \"genre\": \"R&B\",\n  \"imageUrl\": \"https://example.com/weeknd.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artists",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "artists"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get All Artists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artists?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "artists"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Artist by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artists/{{artistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "artists", "{{artistId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Update Artist (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Taylor Swift (Updated)\",\n  \"bio\": \"American singer-songwriter and actress\",\n  \"genre\": \"Pop/Country\",\n  \"imageUrl\": \"https://example.com/taylor-updated.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artists/{{artistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "artists", "{{artistId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Delete Artist (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/artists/{{artistId2}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "artists", "{{artistId2}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Songs",
+      "item": [
+        {
+          "name": "1. Create Song (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('songId', jsonData.songId || jsonData.id);",
+                  "  console.log('✓ Song created, ID:', pm.environment.get('songId'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Shake It Off\",\n  \"artistId\": {{artistId}},\n  \"duration\": 231,\n  \"releaseDate\": \"2014-10-27\",\n  \"imageUrl\": \"https://example.com/shake-it-off.jpg\",\n  \"audioUrl\": \"https://example.com/shake-it-off.mp3\",\n  \"genre\": \"Pop\",\n  \"lyrics\": \"I stay out too late, got nothing in my brain...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Create Another Song",
+          "event": [
+            {
+              "listen": "test",
+              "script": [
+                "if (pm.response.code === 201 || pm.response.code === 200) {",
+                "  var jsonData = pm.response.json();",
+                "  pm.environment.set('songId2', jsonData.songId || jsonData.id);",
+                "  console.log('✓ Second song created, ID:', pm.environment.get('songId2'));",
+                "}"
+              ]
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Love Story\",\n  \"artistId\": {{artistId}},\n  \"duration\": 194,\n  \"releaseDate\": \"2008-09-12\",\n  \"imageUrl\": \"https://example.com/love-story.jpg\",\n  \"audioUrl\": \"https://example.com/love-story.mp3\",\n  \"genre\": \"Country\",\n  \"lyrics\": \"We were both young when I first met you...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get All Songs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Song by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs/{{songId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs", "{{songId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Get Song Lyrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs/{{songId}}/lyrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs", "{{songId}}", "lyrics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Search Songs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs?title=Shake&genre=Pop&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs"],
+              "query": [
+                {
+                  "key": "title",
+                  "value": "Shake"
+                },
+                {
+                  "key": "genre",
+                  "value": "Pop"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7. Update Song (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Shake It Off (Remastered)\",\n  \"duration\": 235,\n  \"genre\": \"Pop\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs/{{songId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs", "{{songId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8. Delete Song (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/songs/{{songId2}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "songs", "{{songId2}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Playlists",
+      "item": [
+        {
+          "name": "1. Create Playlist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('playlistId', jsonData.playlistId || jsonData.id);",
+                  "  console.log('✓ Playlist created, ID:', pm.environment.get('playlistId'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Favorite Songs\",\n  \"description\": \"Collection of my favorite pop songs\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get My Playlists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/user/{{userId}}?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "user", "{{userId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Playlist by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Add Song to Playlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songId\": {{songId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}/songs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}", "songs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Remove Song from Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}/songs/{{songId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "playlists",
+                "{{playlistId}}",
+                "songs",
+                "{{songId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Update Playlist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Favorite Songs Updated\",\n  \"description\": \"Updated collection of my favorite songs\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7. Delete Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Playlists",
+      "item": [
+        {
+          "name": "1. Create Playlist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  var jsonData = pm.response.json();",
+                  "  pm.environment.set('playlistId', jsonData.playlistId || jsonData.id);",
+                  "  console.log('✓ Playlist created, ID:', pm.environment.get('playlistId'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Favorite Songs\",\n  \"description\": \"Collection of my favorite pop songs\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get My Playlists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/user/{{userId}}?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "user", "{{userId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Playlist by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Add Song to Playlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songId\": {{songId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}/songs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}", "songs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Remove Song from Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}/songs/{{songId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "playlists",
+                "{{playlistId}}",
+                "songs",
+                "{{songId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Update Playlist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Favorite Songs Updated\",\n  \"description\": \"Updated collection of my favorite songs\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "7. Delete Playlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/playlists/{{playlistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "playlists", "{{playlistId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "History",
+      "item": [
+        {
+          "name": "1. Record Song Play",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"songId\": {{songId}},\n  \"playedAt\": \"2024-11-22T10:30:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}", "history"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get User History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/history?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Top Songs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/history/top-songs/all?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{userId}}",
+                "history",
+                "top-songs",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "1. Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get All Users (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Delete User (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "3"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Toggle User Active Status (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/toggle-active",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}", "toggle-active"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Recommendations",
+      "item": [
+        {
+          "name": "1. Get Content-Based Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recommendations/song/{{songId}}?k=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recommendations", "song", "{{songId}}"],
+              "query": [
+                {
+                  "key": "k",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Personalized Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recommendations/user/{{userId}}?k=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recommendations", "user", "{{userId}}"],
+              "query": [
+                {
+                  "key": "k",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Recompute Recommendations (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recommendations/admin/recompute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recommendations", "admin", "recompute"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminAccessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminRefreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "artistId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "artistId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "songId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "songId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "playlistId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

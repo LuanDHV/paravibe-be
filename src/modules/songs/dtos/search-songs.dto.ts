@@ -11,6 +11,14 @@ export class SearchSongsDto {
   q?: string;
 
   @ApiProperty({
+    description: 'Filter by song title',
+    example: 'Shake It Off',
+    required: false,
+  })
+  @IsOptional()
+  title?: string;
+
+  @ApiProperty({
     description: 'Filter by artist ID',
     example: 1,
     required: false,

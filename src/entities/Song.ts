@@ -27,6 +27,22 @@ export class Song {
   @Column('varchar', { name: 'genre', nullable: true, length: 255 })
   genre: string | null;
 
+  @Column('int', {
+    name: 'duration',
+    nullable: true,
+    comment: 'Duration in seconds',
+  })
+  duration: number | null;
+
+  @Column('date', { name: 'release_date', nullable: true })
+  releaseDate: string | null;
+
+  @Column('varchar', { name: 'image_url', nullable: true, length: 500 })
+  imageUrl: string | null;
+
+  @Column('varchar', { name: 'audio_url', nullable: true, length: 500 })
+  audioUrl: string | null;
+
   @Column('varchar', { name: 'preview_url', nullable: true, length: 255 })
   previewUrl: string | null;
 
