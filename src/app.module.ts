@@ -12,6 +12,7 @@ import { ArtistsModule } from './modules/artists/artists.module';
 import { PlaylistsModule } from './modules/playlists/playlists.module';
 import { HistoryModule } from './modules/history/history.module';
 import { RecommendationsModule } from './modules/recommendations/recommendations.module';
+import { SpotifyModule } from './modules/spotify/spotify.module';
 
 // Entities
 import { User } from './entities/User';
@@ -57,6 +58,7 @@ import { Recommendation } from './entities/Recommendation';
     PlaylistsModule,
     HistoryModule,
     RecommendationsModule,
+    SpotifyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -12,10 +12,7 @@ import { Song } from '../../entities/Song';
 import { User } from '../../entities/User';
 import { UserHistory } from '../../entities/UserHistory';
 import { TopKRecommendationDto } from './dtos/recommendation-response.dto';
-import {
-  AIRecommendationResponse,
-  AIRecomputeResponse,
-} from './interfaces/ai-response.interface';
+import { AIRecommendationResponse } from './interfaces/ai-response.interface';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 
@@ -36,7 +33,7 @@ export class RecommendationsService {
   ) {
     this.aiServiceUrl = this.configService.get<string>(
       'AI_SERVICE_URL',
-      'http://localhost:5000',
+      'http://localhost:8000',
     );
   }
 
@@ -55,7 +52,7 @@ export class RecommendationsService {
       throw new NotFoundException('Song not found');
     }
 
-    // Try to get cached recommendations from database
+    // Thử lấy gợi ý đã cache từ database
     const cachedRecs = await this.recommendationRepository.find({
       where: { songId },
       order: { score: 'DESC' },
@@ -80,13 +77,15 @@ export class RecommendationsService {
       return result;
     }
 
-    // If no cached recommendations, call Python service
+    // Nếu không có gợi ý đã cache, gọi Python service
     try {
-      const response = await fetch(`${this.aiServiceUrl}/similarity/song`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ song_id: songId, top_k: topK }),
-      });
+      const response = await fetch(
+        `${this.aiServiceUrl}/api/v1/embed/recommend/song/${songId}?top_k=${topK}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
 
       if (!response.ok) {
         throw new Error('AI Service error');
@@ -95,7 +94,7 @@ export class RecommendationsService {
       const data: AIRecommendationResponse = await response.json();
       const recommendations = data.recommendations;
 
-      // Cache recommendations in database
+      // Cache gợi ý vào database
       for (const rec of recommendations) {
         await this.recommendationRepository.save({
           songId,
@@ -105,7 +104,7 @@ export class RecommendationsService {
         } as any);
       }
 
-      // Format and return
+      // Định dạng và trả về
       const result = await Promise.all(
         recommendations.map(async (rec: any) => {
           const similarSong = await this.songRepository.findOne({
@@ -142,87 +141,32 @@ export class RecommendationsService {
       throw new NotFoundException('User not found');
     }
 
-    // Get user's listening history
-    const history = await this.historyRepository.find({
+    // Lấy bài hát nghe gần nhất của user từ lịch sử
+    const recentHistory = await this.historyRepository.findOne({
       where: { userId },
       order: { listenedAt: 'DESC' },
-      take: 50, // Consider recent 50 songs
     });
 
-    if (history.length === 0) {
-      return []; // No recommendations if user has no history
+    if (!recentHistory) {
+      return []; // Không có gợi ý nếu user chưa có lịch sử nghe
     }
 
-    const songIds = history.map((h) => h.songId);
-
-    // Call Python service for user-based recommendations
-    try {
-      const response = await fetch(`${this.aiServiceUrl}/similarity/user`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ song_ids: songIds, top_k: topK }),
-      });
-
-      if (!response.ok) {
-        throw new Error('AI Service error');
-      }
-
-      const data: AIRecommendationResponse = await response.json();
-      const recommendations = data.recommendations;
-
-      // Format and return
-      const result = await Promise.all(
-        recommendations.map(async (rec: any) => {
-          const song = await this.songRepository.findOne({
-            where: { songId: rec.song_id },
-            relations: ['artist'],
-          });
-          return this.formatTopKRecommendation(song, rec.score as number);
-        }),
-      );
-
-      return result;
-    } catch {
-      throw new HttpException(
-        'Failed to fetch user recommendations from AI service',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
+    // Lấy gợi ý dựa trên bài hát nghe gần nhất
+    return this.getRecommendationsBySong(recentHistory.songId, topK);
   }
 
   async recomputeRecommendations(): Promise<{
     message: string;
     count: number;
   }> {
-    // Tính toán lại tất cả các gợi ý bài hát từ dịch vụ AI
-    try {
-      // Gọi Python service để tính toán lại gợi ý
-      const response = await fetch(`${this.aiServiceUrl}/recompute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+    // Xóa cache gợi ý - AI service sẽ tính toán lại theo yêu cầu
+    const deletedCount = await this.recommendationRepository.delete({});
 
-      if (!response.ok) {
-        throw new Error('AI Service error');
-      }
-
-      const data: AIRecomputeResponse = await response.json();
-      const count = data.count;
-
-      // Clear old recommendations
-      await this.recommendationRepository.delete({});
-
-      return {
-        message: 'Recommendations recomputed successfully',
-        count,
-      };
-    } catch {
-      throw new HttpException(
-        'Failed to recompute recommendations',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
+    return {
+      message:
+        'Cached recommendations cleared. New recommendations will be computed on demand.',
+      count: deletedCount.affected || 0,
+    };
   }
 
   private formatTopKRecommendation(
@@ -236,5 +180,146 @@ export class RecommendationsService {
       genre: song?.genre || undefined,
       score,
     };
+  }
+
+  // Các methods bổ sung để tích hợp AI service
+  async embedAudio(audioUrl: string): Promise<{
+    audio_vector: number[];
+    processing_time: number;
+  }> {
+    try {
+      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_url: audioUrl }),
+      });
+
+      if (!response.ok) {
+        throw new HttpException(
+          'Failed to embed audio',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      return (await response.json()) as {
+        audio_vector: number[];
+        processing_time: number;
+      };
+    } catch {
+      throw new HttpException(
+        'AI Service unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  async embedLyrics(
+    lyrics: string,
+    songId?: number,
+  ): Promise<{
+    lyrics_vector: number[];
+    processing_time: number;
+  }> {
+    try {
+      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/lyrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lyrics, song_id: songId }),
+      });
+
+      if (!response.ok) {
+        throw new HttpException(
+          'Failed to embed lyrics',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      return (await response.json()) as {
+        lyrics_vector: number[];
+        processing_time: number;
+      };
+    } catch {
+      throw new HttpException(
+        'AI Service unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  async embedSong(
+    songId: number,
+    audioUrl: string,
+    lyrics: string,
+  ): Promise<{
+    combined_vector: number[];
+    processing_time: number;
+  }> {
+    try {
+      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/song`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ song_id: songId, audio_url: audioUrl, lyrics }),
+      });
+
+      if (!response.ok) {
+        throw new HttpException(
+          'Failed to embed song',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      return (await response.json()) as {
+        combined_vector: number[];
+        processing_time: number;
+      };
+    } catch {
+      throw new HttpException(
+        'AI Service unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  async batchEmbedSongs(
+    songs: Array<{ song_id: number; audio_url: string; lyrics: string }>,
+  ): Promise<any[]> {
+    try {
+      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songs }),
+      });
+
+      if (!response.ok) {
+        throw new HttpException(
+          'Failed to batch embed songs',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      const data = await response.json();
+      return data.results as any[];
+    } catch {
+      throw new HttpException(
+        'AI Service unavailable',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+  }
+
+  async checkAIServiceHealth(): Promise<{ status: string }> {
+    try {
+      const response = await fetch(`${this.aiServiceUrl}/api/v1/health`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        return { status: 'unhealthy' };
+      }
+
+      return (await response.json()) as { status: string };
+    } catch {
+      return { status: 'unreachable' };
+    }
   }
 }
