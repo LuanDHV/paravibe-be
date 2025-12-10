@@ -35,14 +35,20 @@ interface SpotifySearchResponse {
 }
 
 interface SpotifyAudioFeatures {
-  energy: number;
-  danceability: number;
-  valence: number;
+  id: string;
   acousticness: number;
+  danceability: number;
+  energy: number;
   instrumentalness: number;
+  key: number;
   liveness: number;
+  loudness: number;
+  mode: number;
   speechiness: number;
   tempo: number;
+  time_signature: number;
+  valence: number;
+  duration_ms: number;
 }
 
 @Injectable()
@@ -321,5 +327,27 @@ export class SpotifyService {
       popularity: track.popularity,
       albumName: track.album.name,
     };
+  }
+
+  /**
+   * Convert Spotify audio features to a normalized vector
+   * This creates a 13-dimensional vector from Spotify's audio analysis
+   */
+  convertAudioFeaturesToVector(features: SpotifyAudioFeatures): number[] {
+    return [
+      features.acousticness,
+      features.danceability,
+      features.energy,
+      features.instrumentalness,
+      (features.key + 1) / 12,
+      features.liveness,
+      (features.loudness + 60) / 60,
+      features.mode,
+      features.speechiness,
+      features.tempo / 250,
+      (features.time_signature - 3) / 4,
+      features.valence,
+      features.duration_ms / 600000,
+    ];
   }
 }
