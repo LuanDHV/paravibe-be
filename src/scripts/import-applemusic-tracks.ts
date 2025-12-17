@@ -1,8 +1,10 @@
 import { DataSource, Repository } from 'typeorm';
 import axios from 'axios';
 import { config } from 'dotenv';
-import { SpotifyService } from '../modules/spotify/spotify.service';
+import { AppleMusicService } from '../modules/apple-music/apple-music.service';
+import type { ItunesTrack } from '../modules/apple-music/apple-music.service';
 import { GeniusService } from '../modules/genius/genius.service';
+import { MUSIC_GENRES } from '../config/music-genres';
 import { Artist } from '../entities/Artist';
 import { Song } from '../entities/Song';
 import { User } from '../entities/User';
@@ -13,45 +15,19 @@ import { PlaylistSong } from '../entities/PlaylistSong';
 import { UserHistory } from '../entities/UserHistory';
 import { Recommendation } from '../entities/Recommendation';
 
-// Constants
-const SPOTIFY_GENRES = [
-  'pop',
-  'rock',
-  'hiphop',
-  'edm',
-  'latin',
-  'rnb',
-  'indie',
-  'alternative',
-  'trap',
-  'k-pop',
-  'reggae',
-  'classical',
-  'electronic',
-  'soul',
-  'jazz',
-  'country',
-] as const;
+// Import Configuration
 const TRACKS_PER_GENRE = 25;
 const AI_SERVICE_TIMEOUT = 30000;
 const RATE_LIMIT_DELAY = 500;
-const PREFERRED_IMAGE_HEIGHT = 300;
+const IMPORT_WITHOUT_LYRICS = true; // Allow importing songs without lyrics
+const FILTER_STREAMABLE_ONLY = true; // Only import streamable tracks
+
+// 🧪 TEST MODE: Limit total tracks for quick testing
+const TEST_MODE = true; // Set to false for full import
+const TEST_MAX_TRACKS = 50; // Max tracks to import in test mode
+const TEST_MAX_GENRES = 3; // Max genres to process in test mode
 
 // Types
-interface SpotifyTrack {
-  id: string;
-  name: string;
-  artists: Array<{ name: string; id: string }>;
-  album: {
-    images: Array<{ url: string; height: number; width: number }>;
-    name: string;
-    release_date: string;
-  };
-  duration_ms: number;
-  preview_url: string | null;
-  popularity: number;
-}
-
 interface EmbedResponse {
   embedding: number[];
   processing_time: number;
@@ -106,34 +82,63 @@ async function generateLyricEmbedding(
   }
 }
 
-// Helper: Fetch all tracks from Spotify across genres
-async function fetchSpotifyTracks(
-  spotifyService: SpotifyService,
-): Promise<SpotifyTrack[]> {
-  const allTracks: SpotifyTrack[] = [];
+// Helper: Fetch all tracks from Apple Music across genres
+async function fetchAppleMusicTracks(
+  appleMusicService: AppleMusicService,
+): Promise<ItunesTrack[]> {
+  const allTracks: ItunesTrack[] = [];
+
+  // Apply test mode limits
+  const genresToProcess = TEST_MODE
+    ? MUSIC_GENRES.slice(0, TEST_MAX_GENRES)
+    : MUSIC_GENRES;
 
   console.log(
-    `📊 Fetching ${SPOTIFY_GENRES.length} genres × ${TRACKS_PER_GENRE} tracks from Spotify...`,
+    `📊 Fetching ${genresToProcess.length} genres × ${TRACKS_PER_GENRE} tracks from Apple Music...`,
   );
 
-  for (const genre of SPOTIFY_GENRES) {
+  if (TEST_MODE) {
+    console.log(
+      `🧪 TEST MODE: Limited to ${TEST_MAX_GENRES} genres, max ${TEST_MAX_TRACKS} total tracks`,
+    );
+  }
+
+  for (const genre of genresToProcess) {
     try {
-      const genreTracks = await spotifyService.getTrendingTracksMultiplePages(
-        2025,
-        TRACKS_PER_GENRE,
+      const genreTracks = await appleMusicService.searchByGenre(
         genre,
+        TRACKS_PER_GENRE,
       );
-      allTracks.push(...(genreTracks as SpotifyTrack[]));
+      allTracks.push(...genreTracks);
       await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY));
     } catch {
       // Skip failed genre requests silently
     }
   }
 
+  // Filter streamable tracks if needed
+  let filteredTracks = allTracks;
+  if (FILTER_STREAMABLE_ONLY) {
+    filteredTracks = allTracks.filter((track) => track.isStreamable);
+    console.log(
+      `🎵 Filtered to ${filteredTracks.length}/${allTracks.length} streamable tracks`,
+    );
+  }
+
   // Remove duplicates by track ID
-  return Array.from(
-    new Map(allTracks.map((track) => [track.id, track])).values(),
+  let uniqueTracks = Array.from(
+    new Map(filteredTracks.map((track) => [track.trackId, track])).values(),
   );
+
+  // Apply test mode track limit
+  if (TEST_MODE && uniqueTracks.length > TEST_MAX_TRACKS) {
+    uniqueTracks = uniqueTracks.slice(0, TEST_MAX_TRACKS);
+    console.log(
+      `🧪 TEST MODE: Limited to ${TEST_MAX_TRACKS} tracks for testing`,
+    );
+  }
+
+  return uniqueTracks;
 }
 
 // Helper: Get or create artist
@@ -159,36 +164,55 @@ async function getOrCreateArtist(
   return artist;
 }
 
-// Helper: Extract image URL from Spotify track
-function getImageUrl(track: SpotifyTrack): string {
-  return (
-    track.album.images.find((img) => img.height === PREFERRED_IMAGE_HEIGHT)
-      ?.url ||
-    track.album.images[0]?.url ||
-    ''
-  );
+// Helper: Extract image URL from iTunes track
+function getImageUrl(track: ItunesTrack): string {
+  return track.artworkUrl100 || track.artworkUrl60 || '';
+}
+
+// Helper: Convert ISO date to MySQL date format
+function convertToMySQLDate(isoDateString: string | undefined): string | null {
+  if (!isoDateString) return null;
+
+  try {
+    // Parse ISO date and convert to YYYY-MM-DD format
+    const date = new Date(isoDateString);
+    if (isNaN(date.getTime())) return null;
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  } catch {
+    return null;
+  }
 }
 
 // Helper: Process a single track
 async function processTrack(
-  track: SpotifyTrack,
+  track: ItunesTrack,
   artistRepository: Repository<Artist>,
   songRepository: Repository<Song>,
   geniusService: GeniusService,
   stats: ImportStats,
 ): Promise<void> {
   try {
-    // Check if song already exists
-    const existingSong = await songRepository.findOne({
-      where: { title: track.name },
-    });
+    // Check if song already exists (by title + artist combination)
+    const artistName = track.artistName || 'Unknown Artist';
+
+    const existingSong = await songRepository
+      .createQueryBuilder('song')
+      .innerJoin('song.artist', 'artist')
+      .where('song.title = :title', { title: track.trackName })
+      .andWhere('artist.name = :artistName', { artistName })
+      .getOne();
+
     if (existingSong) {
       stats.skipped++;
       return;
     }
 
     // Get or create artist
-    const artistName = track.artists[0]?.name || 'Unknown Artist';
     const imageUrl = getImageUrl(track);
     const artist = await getOrCreateArtist(
       artistName,
@@ -198,20 +222,20 @@ async function processTrack(
 
     // Create song entity
     const song = songRepository.create({
-      title: track.name,
+      title: track.trackName,
       artistId: artist.artistId,
-      genre: 'Pop',
-      duration: Math.floor(track.duration_ms / 1000),
-      releaseDate: track.album.release_date,
+      genre: track.primaryGenreName || 'Pop',
+      duration: Math.floor(track.trackTimeMillis / 1000),
+      releaseDate: convertToMySQLDate(track.releaseDate),
       imageUrl,
       audioUrl: '',
-      previewUrl: track.preview_url || '',
+      previewUrl: track.previewUrl || '',
       lyrics: '',
     });
 
     await songRepository.save(song);
 
-    // Generate embeddings
+    // Try to generate embeddings
     const embeddingsGenerated = await generateEmbeddingsSimple(
       song,
       artist,
@@ -221,12 +245,17 @@ async function processTrack(
 
     if (embeddingsGenerated) {
       stats.imported++;
+    } else if (IMPORT_WITHOUT_LYRICS) {
+      // Keep song even without lyrics/embeddings if configured
+      console.log(`ℹ️  Imported without lyrics: "${song.title}"`);
+      stats.imported++;
     } else {
-      // Remove song if embeddings failed
+      // Remove song if embeddings required but failed
       await songRepository.remove(song);
       stats.skipped++;
     }
-  } catch {
+  } catch (error) {
+    console.log(`❌ Error processing track: ${(error as Error).message}`);
     stats.skipped++;
   }
 }
@@ -240,7 +269,10 @@ function printSummary(stats: ImportStats): void {
   console.log('='.repeat(50));
 
   if (stats.imported > 0) {
-    console.log('✅ Import completed with embeddings!');
+    console.log('✅ Import completed!');
+    if (IMPORT_WITHOUT_LYRICS) {
+      console.log('ℹ️  Note: Some songs imported without lyrics/embeddings');
+    }
   } else {
     console.log('⚠️  No new tracks imported');
   }
@@ -259,12 +291,17 @@ async function generateEmbeddingsSimple(
     // Step 1: Fetch lyrics if needed
     await fetchLyricsIfNeeded(song, artist, geniusService);
 
-    // Step 2: Generate embedding if lyrics exist
+    // Step 2: If no lyrics, return based on config
     if (!song.lyrics) {
+      if (IMPORT_WITHOUT_LYRICS) {
+        console.log(`⚠️  No lyrics for: "${song.title}" - importing anyway`);
+        return false; // No embeddings but we keep the song
+      }
       console.log(`❌ No lyrics available for: "${song.title}"`);
       return false;
     }
 
+    // Step 3: Generate lyric embedding
     const lyricEmbedding = await generateLyricEmbedding(
       song.lyrics,
       aiServiceUrl,
@@ -275,7 +312,7 @@ async function generateEmbeddingsSimple(
       return false;
     }
 
-    // Step 3: Update database
+    // Step 4: Update database with embeddings
     await songRepository.update(song.songId, {
       lyricVector: lyricEmbedding,
     });
@@ -289,9 +326,8 @@ async function generateEmbeddingsSimple(
   }
 }
 
-async function importSpotifyTracks() {
+async function importAppleMusicTracks() {
   config({ path: '.env.local' });
-  const { spotifyConfig } = await import('../config/spotify.config');
 
   const appDataSource = new DataSource({
     type: 'mysql',
@@ -319,32 +355,22 @@ async function importSpotifyTracks() {
     await appDataSource.initialize();
     console.log('✓ Database connected');
 
-    if (!spotifyConfig.clientId || !spotifyConfig.clientSecret) {
-      throw new Error('Spotify client ID and secret must be configured');
-    }
-
-    const spotifyService = new SpotifyService(
-      spotifyConfig.clientId,
-      spotifyConfig.clientSecret,
-    );
-    await spotifyService.authenticate();
+    // Initialize Apple Music service (no auth needed!)
+    const appleMusicService = new AppleMusicService();
+    console.log('✓ Apple Music service initialized');
 
     // Initialize Genius service
     const { geniusConfig } = await import('../config/genius.config');
-    if (!geniusConfig.accessToken) {
-      console.warn(
-        '⚠️  Genius access token not configured. Lyrics will not be fetched.',
-      );
-      console.warn('   Get your token at: https://genius.com/api-clients');
-    }
     const geniusService = new GeniusService(geniusConfig.accessToken);
 
     const artistRepository = appDataSource.getRepository(Artist);
     const songRepository = appDataSource.getRepository(Song);
 
-    // Fetch tracks from Spotify
-    const uniqueTracks = await fetchSpotifyTracks(spotifyService);
-    console.log(`✓ Fetched ${uniqueTracks.length} unique tracks`);
+    // Fetch tracks from Apple Music
+    const uniqueTracks = await fetchAppleMusicTracks(appleMusicService);
+    console.log(
+      `✓ Fetched ${uniqueTracks.length} unique tracks from Apple Music`,
+    );
     console.log('💾 Starting import process with Genius lyrics...');
 
     const stats: ImportStats = { imported: 0, skipped: 0 };
@@ -372,4 +398,4 @@ async function importSpotifyTracks() {
   }
 }
 
-void importSpotifyTracks();
+void importAppleMusicTracks();

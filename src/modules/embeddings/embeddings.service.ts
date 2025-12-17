@@ -182,7 +182,10 @@ export class EmbeddingsService {
         lyricEmbedding: hasLyricEmbedding,
       };
     } catch (error) {
-      this.logger.error(`Failed to generate embedding for song ${songId}:`, error);
+      this.logger.error(
+        `Failed to generate embedding for song ${songId}:`,
+        error,
+      );
       throw new HttpException(
         'Failed to generate embedding',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -217,7 +220,10 @@ export class EmbeddingsService {
         embeddingGenerated: result.lyricEmbedding,
       };
     } catch (error) {
-      this.logger.error('Failed to update lyrics and generate embedding:', error);
+      this.logger.error(
+        'Failed to update lyrics and generate embedding:',
+        error,
+      );
       throw new HttpException(
         'Failed to update lyrics and generate embedding',
         HttpStatus.INTERNAL_SERVER_ERROR,

@@ -1,12 +1,12 @@
 /**
- * Cấu hình các thể loại nhạc Spotify
- * Danh sách các thể loại nhạc có sẵn trên Spotify
+ * Cấu hình các thể loại nhạc
+ * Danh sách các thể loại nhạc phổ biến cho music streaming
  *
- * Spotify Genres Configuration
- * List of available music genres on Spotify
+ * Music Genres Configuration
+ * List of common music genres for streaming services
  */
 
-export const SPOTIFY_GENRES = [
+export const MUSIC_GENRES = [
   // Các thể loại phổ biến / Popular genres
   'pop',
   'rock',
@@ -58,28 +58,14 @@ export const SPOTIFY_GENRES = [
   'dubstep',
 ];
 
-/**
- * Lấy một tập hợp con các thể loại
- * Get a subset of genres
- *
- * @param count Số lượng thể loại cần trả về / Number of genres to return
- * @returns Mảng các thể loại / Array of genres
- */
 export function getGenres(count?: number): string[] {
-  if (!count || count >= SPOTIFY_GENRES.length) {
-    return SPOTIFY_GENRES;
+  if (!count || count >= MUSIC_GENRES.length) {
+    return MUSIC_GENRES;
   }
-  return SPOTIFY_GENRES.slice(0, count);
+  return MUSIC_GENRES.slice(0, count);
 }
 
-/**
- * Lấy các thể loại ngẫu nhiên
- * Get random genres
- *
- * @param count Số lượng thể loại ngẫu nhiên / Number of genres to return
- * @returns Mảng các thể loại ngẫu nhiên / Array of random genres
- */
 export function getRandomGenres(count: number): string[] {
-  const shuffled = [...SPOTIFY_GENRES].sort(() => Math.random() - 0.5);
+  const shuffled = [...MUSIC_GENRES].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
