@@ -46,14 +46,19 @@ export class Song {
   @Column('varchar', { name: 'preview_url', nullable: true, length: 255 })
   previewUrl: string | null;
 
-  @Column('text', { name: 'lyrics', nullable: true })
-  lyrics: string | null;
-
-  @Column('json', { name: 'audio_vector', nullable: true, comment: 'nullable' })
+  @Column('json', {
+    name: 'audio_vector',
+    nullable: true,
+    comment: 'Audio embeddings from preview',
+  })
   audioVector: object | null;
 
-  @Column('json', { name: 'lyric_vector', nullable: true, comment: 'nullable' })
-  lyricVector: object | null;
+  @Column('json', {
+    name: 'metadata_vector',
+    nullable: true,
+    comment: 'Metadata embeddings from genre, artist, etc.',
+  })
+  metadataVector: object | null;
 
   @Column('timestamp', { name: 'created_at', nullable: true })
   createdAt: Date | null;

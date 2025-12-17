@@ -175,18 +175,18 @@ export class SongsService {
     return { message: 'Song deleted successfully' };
   }
 
-  async getLyrics(songId: number): Promise<{ lyrics: string }> {
-    // Lấy lời bài hát
+  async getMetadata(songId: number): Promise<{ metadata: object | null }> {
+    // Lấy metadata vector của bài hát
     const song = await this.songRepository.findOne({
       where: { songId },
-      select: ['lyrics'],
+      select: ['metadataVector'],
     });
 
     if (!song) {
       throw new NotFoundException('Song not found');
     }
 
-    return { lyrics: song.lyrics || '' };
+    return { metadata: song.metadataVector || null };
   }
 
   private formatSongResponse(song: Song): SongResponseDto {
@@ -203,12 +203,11 @@ export class SongsService {
       audioUrl: song.audioUrl || undefined,
       genre: song.genre || '',
       previewUrl: song.previewUrl || '',
-      lyrics: song.lyrics || '',
       audioVector: song.audioVector
         ? (song.audioVector as number[])
         : undefined,
-      lyricVector: song.lyricVector
-        ? (song.lyricVector as number[])
+      metadataVector: song.metadataVector
+        ? (song.metadataVector as number[])
         : undefined,
       createdAt: song.createdAt || new Date(),
     };

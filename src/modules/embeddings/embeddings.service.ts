@@ -3,13 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios from 'axios';
 import { Song } from '../../entities/Song';
-import { Artist } from '../../entities/Artist';
 
 // Interface cho AI Service Response
 // Interface for AI Service Response
 interface AIEmbeddingResponse {
   audio_embedding?: number[];
-  lyric_embedding?: number[];
+  metadata_embedding?: number[];
   error?: string;
 }
 
@@ -41,7 +40,7 @@ export class EmbeddingsService {
       // Get all songs without embeddings
       const songs = await this.songRepository
         .createQueryBuilder('song')
-        .where('song.audioVector IS NULL OR song.lyricVector IS NULL')
+        .where('song.audioVector IS NULL OR song.metadataVector IS NULL')
         .leftJoinAndSelect('song.artist', 'artist')
         .getMany();
 
@@ -87,7 +86,7 @@ export class EmbeddingsService {
   async generateEmbeddingForSong(songId: number): Promise<{
     songId: number;
     audioEmbedding: boolean;
-    lyricEmbedding: boolean;
+    metadataEmbedding: boolean;
   }> {
     try {
       // Lấy thông tin bài hát
@@ -105,9 +104,10 @@ export class EmbeddingsService {
       // Prepare data to send to AI Service
       const requestData: {
         audio_url?: string;
-        lyrics?: string;
+        metadata?: string;
         title?: string;
         artist?: string;
+        genre?: string;
       } = {};
 
       // Nếu có audio URL (preview từ Spotify hoặc audio_url)
@@ -118,22 +118,27 @@ export class EmbeddingsService {
         requestData.audio_url = song.audioUrl;
       }
 
-      // Nếu có lyrics
-      // If lyrics exist
-      if (song.lyrics && song.lyrics.trim() !== '') {
-        requestData.lyrics = song.lyrics;
+      // Nếu có metadata (genre, artist, title)
+      // If metadata exists (genre, artist, title)
+      if (song.genre || song.artist?.name) {
+        requestData.metadata = `
+Title: ${song.title || 'Unknown'}
+Artist: ${song.artist?.name || 'Unknown'}
+Genre: ${song.genre || 'Unknown'}
+        `.trim();
       }
 
       // Thêm thông tin bài hát
       // Add song info
       requestData.title = song.title || '';
       requestData.artist = song.artist?.name || '';
+      requestData.genre = song.genre || '';
 
       // Kiểm tra xem có dữ liệu để xử lý không
       // Check if there's data to process
-      if (!requestData.audio_url && !requestData.lyrics) {
+      if (!requestData.audio_url && !requestData.metadata) {
         throw new HttpException(
-          'No audio URL or lyrics available for this song',
+          'No audio URL or metadata available for this song',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -155,20 +160,20 @@ export class EmbeddingsService {
       // Update vectors to database
       const updateData: {
         audioVector?: object;
-        lyricVector?: object;
+        metadataVector?: object;
       } = {};
 
       let hasAudioEmbedding = false;
-      let hasLyricEmbedding = false;
+      let hasMetadataEmbedding = false;
 
       if (response.data.audio_embedding) {
         updateData.audioVector = response.data.audio_embedding;
         hasAudioEmbedding = true;
       }
 
-      if (response.data.lyric_embedding) {
-        updateData.lyricVector = response.data.lyric_embedding;
-        hasLyricEmbedding = true;
+      if (response.data.metadata_embedding) {
+        updateData.metadataVector = response.data.metadata_embedding;
+        hasMetadataEmbedding = true;
       }
 
       if (Object.keys(updateData).length > 0) {
@@ -179,7 +184,7 @@ export class EmbeddingsService {
       return {
         songId,
         audioEmbedding: hasAudioEmbedding,
-        lyricEmbedding: hasLyricEmbedding,
+        metadataEmbedding: hasMetadataEmbedding,
       };
     } catch (error) {
       this.logger.error(
@@ -194,21 +199,27 @@ export class EmbeddingsService {
   }
 
   /**
-   * Cập nhật lyrics cho bài hát và sinh embedding
-   * Update lyrics for song and generate embedding
+   * Cập nhật metadata cho bài hát và sinh embedding
+   * Update metadata for song and generate embedding
    */
-  async updateLyricsAndGenerate(
+  async updateMetadataAndGenerate(
     songId: number,
-    lyrics: string,
+    metadata: { genre?: string; artist?: string; title?: string },
   ): Promise<{
     songId: number;
-    lyricsUpdated: boolean;
+    metadataUpdated: boolean;
     embeddingGenerated: boolean;
   }> {
     try {
-      // Cập nhật lyrics
-      // Update lyrics
-      await this.songRepository.update(songId, { lyrics });
+      // Cập nhật metadata fields nếu có
+      // Update metadata fields if provided
+      const updateData: Partial<Song> = {};
+      if (metadata.genre) updateData.genre = metadata.genre;
+      if (metadata.title) updateData.title = metadata.title;
+
+      if (Object.keys(updateData).length > 0) {
+        await this.songRepository.update(songId, updateData);
+      }
 
       // Sinh embedding
       // Generate embedding
@@ -216,12 +227,12 @@ export class EmbeddingsService {
 
       return {
         songId,
-        lyricsUpdated: true,
-        embeddingGenerated: result.lyricEmbedding,
+        metadataUpdated: true,
+        embeddingGenerated: result.audioEmbedding || false,
       };
     } catch (error) {
       this.logger.error(
-        'Failed to update lyrics and generate embedding:',
+        'Failed to update metadata and generate embedding:',
         error,
       );
       throw new HttpException(
@@ -238,7 +249,7 @@ export class EmbeddingsService {
   async getEmbeddingsStatus(): Promise<{
     total: number;
     withAudioEmbedding: number;
-    withLyricEmbedding: number;
+    withMetadataEmbedding: number;
     withBothEmbeddings: number;
     withoutEmbeddings: number;
   }> {
@@ -254,11 +265,11 @@ export class EmbeddingsService {
         .where('song.audioVector IS NOT NULL')
         .getCount();
 
-      // Bài hát có lyric embedding
-      // Songs with lyric embedding
-      const withLyricEmbedding = await this.songRepository
+      // Bài hát có metadata embedding
+      // Songs with metadata embedding
+      const withMetadataEmbedding = await this.songRepository
         .createQueryBuilder('song')
-        .where('song.lyricVector IS NOT NULL')
+        .where('song.metadataVector IS NOT NULL')
         .getCount();
 
       // Bài hát có cả 2 embeddings
@@ -266,7 +277,7 @@ export class EmbeddingsService {
       const withBothEmbeddings = await this.songRepository
         .createQueryBuilder('song')
         .where('song.audioVector IS NOT NULL')
-        .andWhere('song.lyricVector IS NOT NULL')
+        .andWhere('song.metadataVector IS NOT NULL')
         .getCount();
 
       // Bài hát chưa có embeddings
@@ -274,13 +285,13 @@ export class EmbeddingsService {
       const withoutEmbeddings = await this.songRepository
         .createQueryBuilder('song')
         .where('song.audioVector IS NULL')
-        .andWhere('song.lyricVector IS NULL')
+        .andWhere('song.metadataVector IS NULL')
         .getCount();
 
       return {
         total,
         withAudioEmbedding,
-        withLyricEmbedding,
+        withMetadataEmbedding,
         withBothEmbeddings,
         withoutEmbeddings,
       };

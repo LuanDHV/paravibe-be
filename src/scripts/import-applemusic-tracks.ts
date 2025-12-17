@@ -1,9 +1,25 @@
+/**
+ * Import Apple Music Tracks Script
+ *
+ * This script imports music tracks from Apple Music API and enriches them with:
+ * 1. Track metadata from Apple Music
+ * 2. Audio embeddings from AI service (using preview URLs)
+ * 3. Metadata embeddings from AI service (genre, artist, album, year)
+ *
+ * Features:
+ * - Fetches tracks across multiple genres
+ * - Filters streamable tracks only
+ * - Generates both audio and metadata embeddings automatically
+ * - Skips duplicate tracks
+ * - Test mode for quick validation
+ * - No lyrics dependency (copyright compliant)
+ */
+
 import { DataSource, Repository } from 'typeorm';
 import axios from 'axios';
 import { config } from 'dotenv';
 import { AppleMusicService } from '../modules/apple-music/apple-music.service';
 import type { ItunesTrack } from '../modules/apple-music/apple-music.service';
-import { GeniusService } from '../modules/genius/genius.service';
 import { MUSIC_GENRES } from '../config/music-genres';
 import { Artist } from '../entities/Artist';
 import { Song } from '../entities/Song';
@@ -17,10 +33,11 @@ import { Recommendation } from '../entities/Recommendation';
 
 // Import Configuration
 const TRACKS_PER_GENRE = 25;
-const AI_SERVICE_TIMEOUT = 30000;
+const AI_SERVICE_TIMEOUT = 60000; // 60 seconds for audio processing
 const RATE_LIMIT_DELAY = 500;
-const IMPORT_WITHOUT_LYRICS = true; // Allow importing songs without lyrics
 const FILTER_STREAMABLE_ONLY = true; // Only import streamable tracks
+const GENERATE_AUDIO_EMBEDDINGS = true; // Generate audio embeddings during import
+const GENERATE_METADATA_EMBEDDINGS = true; // Generate metadata embeddings during import
 
 // 🧪 TEST MODE: Limit total tracks for quick testing
 const TEST_MODE = true; // Set to false for full import
@@ -28,7 +45,12 @@ const TEST_MAX_TRACKS = 50; // Max tracks to import in test mode
 const TEST_MAX_GENRES = 3; // Max genres to process in test mode
 
 // Types
-interface EmbedResponse {
+interface AudioEmbedResponse {
+  embedding: number[];
+  processing_time: number;
+}
+
+interface MetadataEmbedResponse {
   embedding: number[];
   processing_time: number;
 }
@@ -36,48 +58,77 @@ interface EmbedResponse {
 interface ImportStats {
   imported: number;
   skipped: number;
+  audioEmbeddingsSuccess: number;
+  audioEmbeddingsFailed: number;
+  metadataEmbeddingsSuccess: number;
+  metadataEmbeddingsFailed: number;
 }
 
-// Helper: Fetch lyrics from Genius
-async function fetchLyricsIfNeeded(
+// Helper: Generate metadata embedding from iTunes track data
+async function generateMetadataEmbedding(
   song: Song,
   artist: Artist,
-  geniusService: GeniusService,
-): Promise<void> {
-  if (song.lyrics) return;
-
-  try {
-    const lyrics = await geniusService.getLyricsByTitleAndArtist(
-      song.title || '',
-      artist.name || '',
-    );
-    if (lyrics) {
-      song.lyrics = lyrics;
-      console.log(`📝 Lyrics fetched from Genius for: "${song.title}"`);
-    } else {
-      console.log(`⚠️  No lyrics found on Genius for: "${song.title}"`);
-    }
-  } catch (error) {
-    console.log(
-      `⚠️  Genius lyrics fetch failed for: "${song.title}" - ${(error as Error).message}`,
-    );
-  }
-}
-
-// Helper: Generate lyric embedding from AI service
-async function generateLyricEmbedding(
-  lyrics: string,
+  track: ItunesTrack,
   aiServiceUrl: string,
 ): Promise<number[] | null> {
   try {
-    const response = await axios.post<EmbedResponse>(
-      `${aiServiceUrl}/api/v1/embed/lyrics`,
-      { lyrics },
+    // Create rich metadata text from iTunes track data
+    const year = track.releaseDate
+      ? new Date(track.releaseDate).getFullYear()
+      : 'Unknown';
+    const album = track.collectionName || 'Unknown Album';
+    const duration = Math.floor(track.trackTimeMillis / 1000);
+
+    const metadataText = `
+    Title: ${song.title}
+    Artist: ${artist.name}
+    Genre: ${song.genre}
+    Album: ${album}
+    Release Year: ${year}
+    Duration: ${duration} seconds
+    Country: ${track.country}
+    `.trim();
+
+    console.log(`   → Generating metadata embedding for: "${song.title}"`);
+
+    const response = await axios.post<MetadataEmbedResponse>(
+      `${aiServiceUrl}/api/v1/embed/metadata`,
+      { text: metadataText },
+      { timeout: 30000 },
+    );
+
+    return response.data?.embedding || null;
+  } catch (error) {
+    console.log(`⚠️  Metadata embedding failed - ${(error as Error).message}`);
+    return null;
+  }
+}
+
+// Helper: Generate audio embeddings via AI Service
+async function generateAudioEmbedding(
+  previewUrl: string,
+  aiServiceUrl: string,
+): Promise<number[] | null> {
+  try {
+    console.log(`   → Calling AI Service: ${aiServiceUrl}/api/v1/embed/audio`);
+    console.log(`   → Preview URL: ${previewUrl.substring(0, 80)}...`);
+
+    const response = await axios.post<AudioEmbedResponse>(
+      `${aiServiceUrl}/api/v1/embed/audio`,
+      { audio_url: previewUrl },
       { timeout: AI_SERVICE_TIMEOUT },
     );
     return response.data?.embedding || null;
   } catch (error) {
-    console.log(`⚠️  Lyrics embedding failed - ${(error as Error).message}`);
+    if (axios.isAxiosError(error)) {
+      console.log(`⚠️  Audio embedding failed:`);
+      console.log(`   → Status: ${error.response?.status || 'No response'}`);
+      const detail = error.response?.data as { detail?: string };
+      console.log(`   → Message: ${detail?.detail || error.message}`);
+      console.log(`   → URL: ${error.config?.url}`);
+    } else {
+      console.log(`⚠️  Audio embedding failed - ${(error as Error).message}`);
+    }
     return null;
   }
 }
@@ -193,7 +244,6 @@ async function processTrack(
   track: ItunesTrack,
   artistRepository: Repository<Artist>,
   songRepository: Repository<Song>,
-  geniusService: GeniusService,
   stats: ImportStats,
 ): Promise<void> {
   try {
@@ -230,27 +280,42 @@ async function processTrack(
       imageUrl,
       audioUrl: '',
       previewUrl: track.previewUrl || '',
-      lyrics: '',
     });
 
     await songRepository.save(song);
 
     // Try to generate embeddings
-    const embeddingsGenerated = await generateEmbeddingsSimple(
+    const embeddingResult = await generateEmbeddingsSimple(
       song,
       artist,
+      track,
       songRepository,
-      geniusService,
     );
 
-    if (embeddingsGenerated) {
-      stats.imported++;
-    } else if (IMPORT_WITHOUT_LYRICS) {
-      // Keep song even without lyrics/embeddings if configured
-      console.log(`ℹ️  Imported without lyrics: "${song.title}"`);
+    // Track embedding statistics
+    if (embeddingResult.audioSuccess) {
+      stats.audioEmbeddingsSuccess++;
+    } else if (GENERATE_AUDIO_EMBEDDINGS && song.previewUrl) {
+      stats.audioEmbeddingsFailed++;
+    }
+
+    if (embeddingResult.metadataSuccess) {
+      stats.metadataEmbeddingsSuccess++;
+    } else if (GENERATE_METADATA_EMBEDDINGS) {
+      stats.metadataEmbeddingsFailed++;
+    }
+
+    // Decide whether to keep the song
+    const hasAnyEmbedding =
+      embeddingResult.audioSuccess || embeddingResult.metadataSuccess;
+
+    if (hasAnyEmbedding) {
       stats.imported++;
     } else {
-      // Remove song if embeddings required but failed
+      // Remove song if no embeddings generated
+      console.log(
+        `⚠️  No embeddings generated for: "${song.title}" - removing`,
+      );
       await songRepository.remove(song);
       stats.skipped++;
     }
@@ -264,15 +329,21 @@ async function processTrack(
 function printSummary(stats: ImportStats): void {
   console.log('\n' + '='.repeat(50));
   console.log('📈 Summary:');
-  console.log(`   Imported: ${stats.imported}`);
-  console.log(`   Skipped:  ${stats.skipped}`);
+  console.log(`   Imported:              ${stats.imported}`);
+  console.log(`   Skipped:               ${stats.skipped}`);
+  console.log(
+    `   Audio Embeddings:      ${stats.audioEmbeddingsSuccess} success / ${stats.audioEmbeddingsFailed} failed`,
+  );
+  console.log(
+    `   Metadata Embeddings:   ${stats.metadataEmbeddingsSuccess} success / ${stats.metadataEmbeddingsFailed} failed`,
+  );
   console.log('='.repeat(50));
 
   if (stats.imported > 0) {
     console.log('✅ Import completed!');
-    if (IMPORT_WITHOUT_LYRICS) {
-      console.log('ℹ️  Note: Some songs imported without lyrics/embeddings');
-    }
+    console.log(
+      'ℹ️  Note: Using audio + metadata embeddings (no lyrics dependency)',
+    );
   } else {
     console.log('⚠️  No new tracks imported');
   }
@@ -282,47 +353,64 @@ function printSummary(stats: ImportStats): void {
 async function generateEmbeddingsSimple(
   song: Song,
   artist: Artist,
+  track: ItunesTrack,
   songRepository: Repository<Song>,
-  geniusService: GeniusService,
-): Promise<boolean> {
+): Promise<{ audioSuccess: boolean; metadataSuccess: boolean }> {
   try {
     const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    let audioSuccess = false;
+    let metadataSuccess = false;
 
-    // Step 1: Fetch lyrics if needed
-    await fetchLyricsIfNeeded(song, artist, geniusService);
+    // Step 1: Generate audio embedding if preview URL available
+    if (GENERATE_AUDIO_EMBEDDINGS && song.previewUrl) {
+      const audioEmbedding = await generateAudioEmbedding(
+        song.previewUrl,
+        aiServiceUrl,
+      );
 
-    // Step 2: If no lyrics, return based on config
-    if (!song.lyrics) {
-      if (IMPORT_WITHOUT_LYRICS) {
-        console.log(`⚠️  No lyrics for: "${song.title}" - importing anyway`);
-        return false; // No embeddings but we keep the song
+      if (audioEmbedding) {
+        await songRepository.update(song.songId, {
+          audioVector: audioEmbedding as unknown as object,
+        });
+        console.log(
+          `✅ Audio embeddings generated for: "${song.title}" (${audioEmbedding.length}-dim)`,
+        );
+        audioSuccess = true;
+      } else {
+        console.log(`⚠️  Audio embeddings failed for: "${song.title}"`);
       }
-      console.log(`❌ No lyrics available for: "${song.title}"`);
-      return false;
+    } else if (!song.previewUrl) {
+      console.log(`⚠️  No preview URL for: "${song.title}"`);
     }
 
-    // Step 3: Generate lyric embedding
-    const lyricEmbedding = await generateLyricEmbedding(
-      song.lyrics,
-      aiServiceUrl,
-    );
+    // Step 2: Generate metadata embedding
+    if (GENERATE_METADATA_EMBEDDINGS) {
+      const metadataEmbedding = await generateMetadataEmbedding(
+        song,
+        artist,
+        track,
+        aiServiceUrl,
+      );
 
-    if (!lyricEmbedding) {
-      console.log(`❌ No embeddings generated for: "${song.title}"`);
-      return false;
+      if (metadataEmbedding) {
+        await songRepository.update(song.songId, {
+          metadataVector: metadataEmbedding as unknown as object,
+        });
+        console.log(
+          `✅ Metadata embeddings generated for: "${song.title}" (${metadataEmbedding.length}-dim)`,
+        );
+        metadataSuccess = true;
+      } else {
+        console.log(`⚠️  Metadata embeddings failed for: "${song.title}"`);
+      }
     }
 
-    // Step 4: Update database with embeddings
-    await songRepository.update(song.songId, {
-      lyricVector: lyricEmbedding,
-    });
-    console.log(`✅ Lyric embeddings generated for: "${song.title}"`);
-    return true;
+    return { audioSuccess, metadataSuccess };
   } catch (error) {
     console.log(
       `❌ Processing failed for: "${song.title}" - ${(error as Error).message}`,
     );
-    return false;
+    return { audioSuccess: false, metadataSuccess: false };
   }
 }
 
@@ -359,10 +447,6 @@ async function importAppleMusicTracks() {
     const appleMusicService = new AppleMusicService();
     console.log('✓ Apple Music service initialized');
 
-    // Initialize Genius service
-    const { geniusConfig } = await import('../config/genius.config');
-    const geniusService = new GeniusService(geniusConfig.accessToken);
-
     const artistRepository = appDataSource.getRepository(Artist);
     const songRepository = appDataSource.getRepository(Song);
 
@@ -371,19 +455,22 @@ async function importAppleMusicTracks() {
     console.log(
       `✓ Fetched ${uniqueTracks.length} unique tracks from Apple Music`,
     );
-    console.log('💾 Starting import process with Genius lyrics...');
+    console.log(
+      '💾 Starting import process with audio and metadata embeddings...',
+    );
 
-    const stats: ImportStats = { imported: 0, skipped: 0 };
+    const stats: ImportStats = {
+      imported: 0,
+      skipped: 0,
+      audioEmbeddingsSuccess: 0,
+      audioEmbeddingsFailed: 0,
+      metadataEmbeddingsSuccess: 0,
+      metadataEmbeddingsFailed: 0,
+    };
 
     // Process each track
     for (const track of uniqueTracks) {
-      await processTrack(
-        track,
-        artistRepository,
-        songRepository,
-        geniusService,
-        stats,
-      );
+      await processTrack(track, artistRepository, songRepository, stats);
     }
 
     // Print summary

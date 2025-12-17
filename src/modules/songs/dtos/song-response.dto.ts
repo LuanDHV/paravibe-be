@@ -67,12 +67,6 @@ export class SongResponseDto {
   previewUrl: string;
 
   @ApiProperty({
-    description: 'Song lyrics',
-    example: 'Is this the real life...',
-  })
-  lyrics: string;
-
-  @ApiProperty({
     description: 'Audio feature vector for recommendations',
     type: [Number],
     example: [0.1, 0.2, 0.3],
@@ -81,12 +75,13 @@ export class SongResponseDto {
   audioVector?: number[];
 
   @ApiProperty({
-    description: 'Lyric feature vector for recommendations',
+    description:
+      'Metadata feature vector for recommendations (genre, artist, album)',
     type: [Number],
     example: [0.4, 0.5, 0.6],
     required: false,
   })
-  lyricVector?: number[];
+  metadataVector?: number[];
 
   @ApiProperty({
     description: 'Song creation timestamp',

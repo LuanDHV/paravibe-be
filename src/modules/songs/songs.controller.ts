@@ -109,13 +109,17 @@ export class SongsController {
     schema: {
       type: 'object',
       properties: {
-        lyrics: { type: 'string', example: 'Is this the real life...' },
+        metadata: {
+          type: 'object',
+          nullable: true,
+          example: { genre: 'Rock', artist: 'Queen' },
+        },
       },
     },
   })
   @ApiResponse({ status: 404, description: 'Song not found' })
-  getLyrics(@Param('id', ParseIntPipe) songId: number) {
-    return this.songsService.getLyrics(songId);
+  getMetadata(@Param('id', ParseIntPipe) songId: number) {
+    return this.songsService.getMetadata(songId);
   }
 
   @Post()
