@@ -141,18 +141,44 @@ export class RecommendationsService {
       throw new NotFoundException('User not found');
     }
 
-    // Lấy bài hát nghe gần nhất của user từ lịch sử
-    const recentHistory = await this.historyRepository.findOne({
-      where: { userId },
-      order: { listenedAt: 'DESC' },
-    });
+    // Gọi Python API để lấy user-based recommendations
+    // Python API: GET /api/v1/embed/recommend/user/{user_id}?top_k={top_k}
+    try {
+      const response = await fetch(
+        `${this.aiServiceUrl}/api/v1/embed/recommend/user/${userId}?top_k=${topK}`,
+        {
+          method: 'GET',
+        },
+      );
 
-    if (!recentHistory) {
-      return []; // Không có gợi ý nếu user chưa có lịch sử nghe
+      if (!response.ok) {
+        throw new Error('AI Service error');
+      }
+
+      const data: AIRecommendationResponse = await response.json();
+      const recommendations = data.recommendations;
+
+      // Định dạng và trả về
+      const result = await Promise.all(
+        recommendations.map(async (rec: any) => {
+          const similarSong = await this.songRepository.findOne({
+            where: { songId: rec.song_id },
+            relations: ['artist'],
+          });
+          return this.formatTopKRecommendation(
+            similarSong,
+            rec.score as number,
+          );
+        }),
+      );
+
+      return result;
+    } catch {
+      throw new HttpException(
+        'Failed to fetch user recommendations from AI service',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
-
-    // Lấy gợi ý dựa trên bài hát nghe gần nhất
-    return this.getRecommendationsBySong(recentHistory.songId, topK);
   }
 
   async recomputeRecommendations(): Promise<{
