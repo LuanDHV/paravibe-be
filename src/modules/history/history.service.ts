@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserHistory } from '../../entities/UserHistory';
 import { Song } from '../../entities/Song';
+import { User } from '../../entities/User';
 import { CreateHistoryDto, HistoryAction } from './dtos/create-history.dto';
 import { HistoryResponseDto } from './dtos/history-response.dto';
 
@@ -13,6 +14,8 @@ export class HistoryService {
     private historyRepository: Repository<UserHistory>,
     @InjectRepository(Song)
     private songRepository: Repository<Song>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   async recordListening(
@@ -20,10 +23,24 @@ export class HistoryService {
     createHistoryDto: CreateHistoryDto,
   ): Promise<HistoryResponseDto> {
     // Ghi nhận lịch sử nghe nhạc của user
+    // Validate that user exists
+    const user = await this.userRepository.findOne({
+      where: { userId },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Validate that song exists
     const song = await this.songRepository.findOne({
       where: { songId: createHistoryDto.songId },
       relations: ['artist'],
     });
+    if (!song) {
+      throw new NotFoundException(
+        `Song with ID ${createHistoryDto.songId} not found`,
+      );
+    }
 
     const history = this.historyRepository.create({
       userId,
