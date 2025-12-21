@@ -65,15 +65,8 @@ export class CreateSongDto {
   previewUrl?: string;
 
   @ApiProperty({
-    description: 'Song lyrics',
-    example: 'Is this the real life...',
-    required: false,
-  })
-  @IsOptional()
-  lyrics?: string;
-
-  @ApiProperty({
-    description: 'Audio feature vector for recommendations',
+    description:
+      'Audio feature vector for recommendations (768-dimensional MERT embedding)',
     type: [Number],
     example: [0.1, 0.2, 0.3],
     required: false,
@@ -82,11 +75,12 @@ export class CreateSongDto {
   audioVector?: number[];
 
   @ApiProperty({
-    description: 'Lyric feature vector for recommendations',
+    description:
+      'Metadata feature vector for recommendations (384-dimensional SBERT embedding)',
     type: [Number],
     example: [0.4, 0.5, 0.6],
     required: false,
   })
   @IsOptional()
-  lyricVector?: number[];
+  metadataVector?: number[];
 }

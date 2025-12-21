@@ -41,7 +41,7 @@ export class RecommendationsService {
     songId: number,
     topK: number = 5,
   ): Promise<TopKRecommendationDto[]> {
-    // Lấy gợi ý bài hát tương tự
+    // Lấy gợi ý bài hát tương tự dựa trên audio + metadata embeddings
     // Kiểm tra bài hát tồn tại
     const song = await this.songRepository.findOne({
       where: { songId },
@@ -78,12 +78,12 @@ export class RecommendationsService {
     }
 
     // Nếu không có gợi ý đã cache, gọi Python service
+    // Python API: GET /api/v1/embed/recommend/song/{song_id}?top_k={top_k}
     try {
       const response = await fetch(
         `${this.aiServiceUrl}/api/v1/embed/recommend/song/${songId}?top_k=${topK}`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'GET',
         },
       );
 
@@ -182,9 +182,9 @@ export class RecommendationsService {
     };
   }
 
-  // Các methods bổ sung để tích hợp AI service
+  // Các methods AI service integration
   async embedAudio(audioUrl: string): Promise<{
-    audio_vector: number[];
+    embedding: number[];
     processing_time: number;
   }> {
     try {
@@ -202,7 +202,7 @@ export class RecommendationsService {
       }
 
       return (await response.json()) as {
-        audio_vector: number[];
+        embedding: number[];
         processing_time: number;
       };
     } catch {
@@ -213,92 +213,35 @@ export class RecommendationsService {
     }
   }
 
-  async embedLyrics(
-    lyrics: string,
-    songId?: number,
-  ): Promise<{
-    lyrics_vector: number[];
+  async embedMetadata(metadataText: string): Promise<{
+    embedding: number[];
     processing_time: number;
   }> {
     try {
-      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lyrics, song_id: songId }),
-      });
+      const response = await fetch(
+        `${this.aiServiceUrl}/api/v1/embed/metadata`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: metadataText.split('\n')[0],
+            artist: metadataText.split('\n')[1],
+            genre: metadataText.split('\n')[2],
+          }),
+        },
+      );
 
       if (!response.ok) {
         throw new HttpException(
-          'Failed to embed lyrics',
+          'Failed to embed metadata',
           HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
 
       return (await response.json()) as {
-        lyrics_vector: number[];
+        embedding: number[];
         processing_time: number;
       };
-    } catch {
-      throw new HttpException(
-        'AI Service unavailable',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-
-  async embedSong(
-    songId: number,
-    audioUrl: string,
-    lyrics: string,
-  ): Promise<{
-    combined_vector: number[];
-    processing_time: number;
-  }> {
-    try {
-      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/song`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ song_id: songId, audio_url: audioUrl, lyrics }),
-      });
-
-      if (!response.ok) {
-        throw new HttpException(
-          'Failed to embed song',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
-
-      return (await response.json()) as {
-        combined_vector: number[];
-        processing_time: number;
-      };
-    } catch {
-      throw new HttpException(
-        'AI Service unavailable',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
-    }
-  }
-
-  async batchEmbedSongs(
-    songs: Array<{ song_id: number; audio_url: string; lyrics: string }>,
-  ): Promise<any[]> {
-    try {
-      const response = await fetch(`${this.aiServiceUrl}/api/v1/embed/batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songs }),
-      });
-
-      if (!response.ok) {
-        throw new HttpException(
-          'Failed to batch embed songs',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
-
-      const data = await response.json();
-      return data.results as any[];
     } catch {
       throw new HttpException(
         'AI Service unavailable',

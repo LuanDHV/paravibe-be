@@ -99,20 +99,31 @@ export class SongsController {
   }
 
   @Public()
-  @Get(':id/lyrics')
+  @Get(':id/metadata')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Get song lyrics' })
+  @ApiOperation({ summary: 'Get song metadata and metadata embedding vector' })
   @ApiParam({ name: 'id', description: 'Song ID', example: 1 })
   @ApiResponse({
     status: 200,
-    description: 'Lyrics retrieved successfully',
+    description: 'Metadata with embedding vector retrieved successfully',
     schema: {
       type: 'object',
       properties: {
         metadata: {
           type: 'object',
           nullable: true,
-          example: { genre: 'Rock', artist: 'Queen' },
+          example: {
+            genre: 'Rock',
+            artist: 'Queen',
+            album: 'A Night at the Opera',
+          },
+        },
+        metadataVector: {
+          type: 'array',
+          items: { type: 'number' },
+          nullable: true,
+          description:
+            'Metadata feature vector for recommendations (384-dimensional SBERT embedding)',
         },
       },
     },
