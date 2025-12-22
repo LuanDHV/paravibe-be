@@ -72,34 +72,39 @@ async function generateMetadataEmbedding(
   aiServiceUrl: string,
 ): Promise<number[] | null> {
   try {
-    // Create rich metadata text from iTunes track data
     const year = track.releaseDate
-      ? new Date(track.releaseDate).getFullYear()
+      ? new Date(track.releaseDate).getFullYear().toString()
       : 'Unknown';
     const album = track.collectionName || 'Unknown Album';
-    const duration = Math.floor(track.trackTimeMillis / 1000);
-
-    const metadataText = `
-    Title: ${song.title}
-    Artist: ${artist.name}
-    Genre: ${song.genre}
-    Album: ${album}
-    Release Year: ${year}
-    Duration: ${duration} seconds
-    Country: ${track.country}
-    `.trim();
 
     console.log(`   → Generating metadata embedding for: "${song.title}"`);
 
+    // Send structured metadata fields to AI Service
     const response = await axios.post<MetadataEmbedResponse>(
       `${aiServiceUrl}/api/v1/embed/metadata`,
-      { text: metadataText },
+      {
+        title: song.title,
+        artist: artist.name,
+        genre: song.genre,
+        album: album,
+        year: year,
+        country: track.country || 'Unknown',
+      },
       { timeout: 30000 },
     );
 
     return response.data?.embedding || null;
   } catch (error) {
-    console.log(`⚠️  Metadata embedding failed - ${(error as Error).message}`);
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data as { detail?: string };
+      console.log(
+        `⚠️  Metadata embedding failed - ${detail?.detail || error.message}`,
+      );
+    } else {
+      console.log(
+        `⚠️  Metadata embedding failed - ${(error as Error).message}`,
+      );
+    }
     return null;
   }
 }
