@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Song } from '../../entities/Song';
 import { Artist } from '../../entities/Artist';
+import { UserHistory } from '../../entities/UserHistory';
 import { CreateSongDto } from './dtos/create-song.dto';
 import { UpdateSongDto } from './dtos/update-song.dto';
 import { SearchSongsDto } from './dtos/search-songs.dto';
 import { SongResponseDto } from './dtos/song-response.dto';
+import { TrendingSongResponseDto } from './dtos/trending-song-response.dto';
 
 @Injectable()
 export class SongsService {
@@ -15,6 +17,8 @@ export class SongsService {
     private songRepository: Repository<Song>,
     @InjectRepository(Artist)
     private artistRepository: Repository<Artist>,
+    @InjectRepository(UserHistory)
+    private historyRepository: Repository<UserHistory>,
   ) {}
 
   async create(createSongDto: CreateSongDto): Promise<SongResponseDto> {
@@ -187,6 +191,80 @@ export class SongsService {
     }
 
     return { metadata: song.metadataVector || null };
+  }
+
+  async getTrendingSongs(
+    limit: number = 20,
+    period?: 'week' | 'month' | 'year' | 'all',
+  ): Promise<{
+    data: TrendingSongResponseDto[];
+    total: number;
+  }> {
+    // Lấy danh sách bài hát trending dựa trên lịch sử nghe
+    let minDate: Date | undefined;
+
+    if (period === 'week') {
+      minDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    } else if (period === 'month') {
+      minDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    } else if (period === 'year') {
+      minDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    }
+
+    // Lấy thống kê từ UserHistory
+    let queryBuilder = this.historyRepository
+      .createQueryBuilder('uh')
+      .select('uh.songId', 'songId')
+      .addSelect('COUNT(uh.songId)', 'playCount')
+      .addSelect('SUM(uh.durationListened)', 'totalDuration')
+      .where('uh.action = :action', { action: 'PLAY' });
+
+    if (minDate) {
+      queryBuilder = queryBuilder.andWhere('uh.listenedAt >= :date', {
+        date: minDate,
+      });
+    }
+
+    const historyStats = await queryBuilder
+      .groupBy('uh.songId')
+      .orderBy('COUNT(uh.songId)', 'DESC')
+      .addOrderBy('SUM(uh.durationListened)', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    if (historyStats.length === 0) {
+      return { data: [], total: 0 };
+    }
+
+    // Lấy thông tin đầy đủ của các bài hát
+    const songIds = historyStats.map((r: Record<string, any>) =>
+      parseInt(r.songId as string, 10),
+    );
+    const songs = await this.songRepository.find({
+      where: songIds.map((id) => ({ songId: id })),
+      relations: ['artist'],
+    });
+
+    // Kết hợp dữ liệu
+    const trendingSongs = historyStats
+      .map((r: Record<string, any>) => {
+        const song = songs.find(
+          (s) => s.songId === parseInt(r.songId as string, 10),
+        );
+        if (!song) return null;
+
+        return {
+          ...this.formatSongResponse(song),
+          playCount: parseInt(r.playCount as string, 10),
+          totalDuration: parseInt(r.totalDuration as string, 10) || 0,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    return {
+      data: trendingSongs,
+      total: trendingSongs.length,
+    };
   }
 
   private formatSongResponse(song: Song): SongResponseDto {

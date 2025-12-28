@@ -59,6 +59,45 @@ export class ArtistsController {
   }
 
   @Public()
+  @Get('top')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get top artists based on play history' })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Number of artists to return',
+    example: 20,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'period',
+    description: 'Time period for ranking calculation',
+    example: 'all',
+    enum: ['week', 'month', 'year', 'all'],
+    required: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Top artists retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/TopArtistResponseDto' },
+        },
+        total: { type: 'number' },
+      },
+    },
+  })
+  getTopArtists(
+    @Query('limit') limit?: string,
+    @Query('period') period?: 'week' | 'month' | 'year' | 'all',
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.artistsService.getTopArtists(limitNum, period);
+  }
+
+  @Public()
   @Get(':id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Get artist by ID' })

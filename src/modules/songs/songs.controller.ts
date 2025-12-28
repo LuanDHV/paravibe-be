@@ -84,6 +84,45 @@ export class SongsController {
   }
 
   @Public()
+  @Get('trending')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get trending songs based on play history' })
+  @ApiQuery({
+    name: 'limit',
+    description: 'Number of songs to return',
+    example: 20,
+    required: false,
+  })
+  @ApiQuery({
+    name: 'period',
+    description: 'Time period for trending calculation',
+    example: 'week',
+    enum: ['week', 'month', 'year', 'all'],
+    required: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Trending songs retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/TrendingSongResponseDto' },
+        },
+        total: { type: 'number' },
+      },
+    },
+  })
+  getTrending(
+    @Query('limit') limit?: string,
+    @Query('period') period?: 'week' | 'month' | 'year' | 'all',
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.songsService.getTrendingSongs(limitNum, period);
+  }
+
+  @Public()
   @Get(':id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Get song by ID' })

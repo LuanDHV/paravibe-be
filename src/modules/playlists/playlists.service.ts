@@ -120,13 +120,20 @@ export class PlaylistsService {
     addSongDto: AddSongToPlaylistDto,
   ): Promise<{ message: string }> {
     // Thêm bài hát vào danh sách phát
-    // Kiểm tra playlist thuộc về user
+    // Kiểm tra playlist tồn tại
     const playlist = await this.playlistRepository.findOne({
-      where: { playlistId, userId },
+      where: { playlistId },
     });
 
     if (!playlist) {
-      throw new ForbiddenException('You cannot add songs to this playlist');
+      throw new NotFoundException('Playlist not found');
+    }
+
+    // Kiểm tra playlist thuộc về user
+    if (playlist.userId !== userId) {
+      throw new ForbiddenException(
+        'You cannot add songs to this playlist - you are not the owner',
+      );
     }
 
     // Kiểm tra bài hát tồn tại
@@ -165,14 +172,19 @@ export class PlaylistsService {
     userId: number,
   ): Promise<{ message: string }> {
     // Xóa bài hát khỏi danh sách phát
-    // Kiểm tra playlist thuộc về user
+    // Kiểm tra playlist tồn tại
     const playlist = await this.playlistRepository.findOne({
-      where: { playlistId, userId },
+      where: { playlistId },
     });
 
     if (!playlist) {
+      throw new NotFoundException('Playlist not found');
+    }
+
+    // Kiểm tra playlist thuộc về user
+    if (playlist.userId !== userId) {
       throw new ForbiddenException(
-        'You cannot remove songs from this playlist',
+        'You cannot remove songs from this playlist - you are not the owner',
       );
     }
 
@@ -196,11 +208,17 @@ export class PlaylistsService {
   ): Promise<PlaylistResponseDto> {
     // Cập nhật thông tin danh sách phát
     const playlist = await this.playlistRepository.findOne({
-      where: { playlistId, userId },
+      where: { playlistId },
     });
 
     if (!playlist) {
-      throw new ForbiddenException('You cannot update this playlist');
+      throw new NotFoundException('Playlist not found');
+    }
+
+    if (playlist.userId !== userId) {
+      throw new ForbiddenException(
+        'You cannot update this playlist - you are not the owner',
+      );
     }
 
     Object.assign(playlist, updatePlaylistDto);
@@ -229,11 +247,17 @@ export class PlaylistsService {
   ): Promise<{ message: string }> {
     // Xóa danh sách phát
     const playlist = await this.playlistRepository.findOne({
-      where: { playlistId, userId },
+      where: { playlistId },
     });
 
     if (!playlist) {
-      throw new ForbiddenException('You cannot delete this playlist');
+      throw new NotFoundException('Playlist not found');
+    }
+
+    if (playlist.userId !== userId) {
+      throw new ForbiddenException(
+        'You cannot delete this playlist - you are not the owner',
+      );
     }
 
     // Delete all songs in playlist first
