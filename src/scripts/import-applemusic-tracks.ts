@@ -32,15 +32,15 @@ import { UserHistory } from '../entities/UserHistory';
 import { Recommendation } from '../entities/Recommendation';
 
 // Import Configuration
-const TRACKS_PER_GENRE = 25;
+const TRACKS_PER_GENRE = 50; // Tăng từ 25 lên 50 tracks/genre
 const AI_SERVICE_TIMEOUT = 60000; // 60 seconds for audio processing
 const RATE_LIMIT_DELAY = 500;
 const FILTER_STREAMABLE_ONLY = true; // Only import streamable tracks
 const GENERATE_AUDIO_EMBEDDINGS = true; // Generate audio embeddings during import
 const GENERATE_METADATA_EMBEDDINGS = true; // Generate metadata embeddings during import
 
-// 🧪 TEST MODE: Limit total tracks for quick testing
-const TEST_MODE = true; // Set to false for full import
+// 🧪 TEST MODE: Disable để import full data
+const TEST_MODE = false; // Set to false for full import
 const TEST_MAX_TRACKS = 50; // Max tracks to import in test mode
 const TEST_MAX_GENRES = 3; // Max genres to process in test mode
 

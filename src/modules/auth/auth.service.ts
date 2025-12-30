@@ -176,7 +176,7 @@ export class AuthService {
     // Access token
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET', 'your-secret-key'),
-      expiresIn: '15m',
+      expiresIn: '14d', // 14 ngày
     });
 
     // Refresh token
@@ -203,7 +203,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900, // 15 phút = 900 giây
+      expiresIn: 1209600, // 14 ngày
       tokenType: 'Bearer',
     };
   }
