@@ -109,7 +109,7 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Cannot update other user profile',
+    description: 'Forbidden - Cannot update other user profile or role',
   })
   @ApiResponse({ status: 404, description: 'User not found' })
   updateUser(
@@ -117,10 +117,16 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() currentUser: UserPayload,
   ) {
-    // User chỉ có thể update chính mình, trừ Admin
+    // User thường chỉ có thể update chính mình
     if (currentUser.userId !== userId && currentUser.role !== 'ADMIN') {
       throw new ForbiddenException('You cannot update other user profile');
     }
+
+    // Chỉ Admin mới được update role
+    if (updateUserDto.role && currentUser.role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can change user roles');
+    }
+
     return this.usersService.update(userId, updateUserDto);
   }
 

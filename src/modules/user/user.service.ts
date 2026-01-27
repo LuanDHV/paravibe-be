@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/User';
+import { Role } from 'src/entities/Role';
 import { Repository } from 'typeorm';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -11,6 +12,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Role)
+    private roleRepository: Repository<Role>,
   ) {}
 
   async findById(userId: number): Promise<UserResponseDto> {
@@ -91,6 +94,20 @@ export class UsersService {
       user.isActive = updateUserDto.isActive;
     }
 
+    // Cập nhật role nếu có
+    if (updateUserDto.role) {
+      const role = await this.roleRepository.findOne({
+        where: { name: updateUserDto.role },
+      });
+
+      if (!role) {
+        throw new NotFoundException(`Role '${updateUserDto.role}' not found`);
+      }
+
+      user.roleId = role.roleId;
+      user.role = role;
+    }
+
     await this.userRepository.save(user);
 
     return this.formatUserResponse(user);
@@ -106,6 +123,29 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // Xóa dữ liệu liên quan trước (UserToken, UserHistory, Playlists, etc.)
+    // Sử dụng raw query để xóa dữ liệu liên quan do foreign key constraint
+    await this.userRepository.manager.query(
+      'DELETE FROM `UserToken` WHERE `user_id` = ?',
+      [userId],
+    );
+
+    await this.userRepository.manager.query(
+      'DELETE FROM `UserHistory` WHERE `user_id` = ?',
+      [userId],
+    );
+
+    await this.userRepository.manager.query(
+      'DELETE FROM `PlaylistSong` WHERE `playlist_id` IN (SELECT `playlist_id` FROM `Playlist` WHERE `user_id` = ?)',
+      [userId],
+    );
+
+    await this.userRepository.manager.query(
+      'DELETE FROM `Playlist` WHERE `user_id` = ?',
+      [userId],
+    );
+
+    // Cuối cùng xóa user
     await this.userRepository.remove(user);
 
     return { message: 'User deleted successfully' };
