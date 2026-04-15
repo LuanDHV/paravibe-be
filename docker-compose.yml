@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+  paravibe-mysql:
+    image: mysql:8.0
+    container_name: paravibe-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: paravibe_db
+      MYSQL_USER: paravibe
+      MYSQL_PASSWORD: mypass
+    ports:
+      - '3306:3306'
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - paravibe-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: paravibe-phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: paravibe-mysql
+      PMA_USER: paravibe
+      PMA_PASSWORD: mypass
+    depends_on:
+      - paravibe-mysql
+    ports:
+      - '8081:80'
+    networks:
+      - paravibe-network
+
+volumes:
+  mysql_data:
+
+networks:
+  paravibe-network:
+    driver: bridge
